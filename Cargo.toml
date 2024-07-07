@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-plonky2 = { git = "https://github.com/0xPolygonZero/plonky2" }
-starky = { git = "https://github.com/0xPolygonZero/plonky2" }
+# Depending on PLONKY2 v0.2.3
+plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", rev = "76da138" }
+starky = { git = "https://github.com/0xPolygonZero/plonky2", rev = "76da138" }
 anyhow = "1.0.86"
