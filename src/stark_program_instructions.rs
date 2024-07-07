@@ -46,39 +46,48 @@ use crate::vm_specs::Program;
 const NUMBER_OF_COLS: usize = 3;
 const PUBLIC_INPUTS: usize = 0;
 
-pub fn generate_program_instructions_trace<F>(
-    prog: &Program
-) -> Vec<PolynomialValues<F>>
-where
-    F: RichField,
-{
-    let mut trace = prog
-        .code
-        .iter()
-        .map(|(pc, inst)| {
-            [
-                // Program Counter (ID = 0)
-                F::from_canonical_u8(pc.clone()),
-                // Instruction Opcode (ID = 1)
-                F::from_canonical_u8(inst.get_opcode()),
-                // Filter, true if actual instructions (ID = 2)
-                F::ONE,
-            ]
-        })
-        .collect::<Vec<[F; NUMBER_OF_COLS]>>();
-
-    // Need to pad the trace to a len of some power of 2
-    let pow2_len = trace
-        .len()
-        .next_power_of_two();
-    trace.resize(pow2_len, [F::ZERO, F::ZERO, F::ZERO]);
-
-    // Convert into polynomial values
-    trace_rows_to_poly_values(trace)
-}
-
 pub struct ProgramInstructionsStark<F, const D: usize> {
     pub _f: PhantomData<F>,
+}
+
+impl<F, const D: usize> ProgramInstructionsStark<F, D>
+where
+    F: RichField + Extendable<D>,
+{
+    pub fn new() -> Self {
+        Self { _f: PhantomData }
+    }
+
+    pub fn generate_program_instructions_trace(
+        prog: &Program
+    ) -> Vec<PolynomialValues<F>>
+    where
+        F: RichField,
+    {
+        let mut trace = prog
+            .code
+            .iter()
+            .map(|(pc, inst)| {
+                [
+                    // Program Counter (ID = 0)
+                    F::from_canonical_u8(pc.clone()),
+                    // Instruction Opcode (ID = 1)
+                    F::from_canonical_u8(inst.get_opcode()),
+                    // Filter, true if actual instructions (ID = 2)
+                    F::ONE,
+                ]
+            })
+            .collect::<Vec<[F; NUMBER_OF_COLS]>>();
+
+        // Need to pad the trace to a len of some power of 2
+        let pow2_len = trace
+            .len()
+            .next_power_of_two();
+        trace.resize(pow2_len, [F::ZERO, F::ZERO, F::ZERO]);
+
+        // Convert into polynomial values
+        trace_rows_to_poly_values(trace)
+    }
 }
 
 impl<F, const D: usize> Stark<F, D> for ProgramInstructionsStark<F, D>
@@ -125,5 +134,52 @@ where
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        plonk::config::{
+            GenericConfig,
+            PoseidonGoldilocksConfig,
+        },
+        util::timing::TimingTree,
+    };
+    use starky::{
+        config::StarkConfig,
+        proof::StarkProofWithPublicInputs,
+        prover::prove,
+    };
+
+    use crate::vm_specs::Instruction;
+
+    use super::*;
+
+    #[test]
+    fn test_nil_program() {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = ProgramInstructionsStark<F, D>;
+        type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
+
+        let stark = S::new();
+        let mut config = StarkConfig::standard_fast_config();
+        // Need to do this since our table is small. Need atleast 1<<5
+        // sized table to not affect this
+        config
+            .fri_config
+            .cap_height = 1;
+        let program = Program::default();
+        let trace =
+            ProgramInstructionsStark::<F, D>::generate_program_instructions_trace(
+                &program,
+            );
+        let proof: Result<PR, anyhow::Error> =
+            prove(stark, &config, trace, &[], &mut TimingTree::default());
     }
 }
