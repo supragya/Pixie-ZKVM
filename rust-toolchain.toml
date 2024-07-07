@@ -1,0 +1,8 @@
+[toolchain]
+# We need nightly toolchain since we depend on `plonky2` which
+# demands for `#![feature(specialization)]` among other things.
+# Since we anyways depend on `nightly`, we also make use of some
+# `nightly`-only features.
+channel = "nightly-2024-04-24"
+components = ["rust-analyzer", "rustfmt", "rust-src", "clippy"]
+profile = "minimal"

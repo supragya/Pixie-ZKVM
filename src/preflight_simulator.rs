@@ -6,8 +6,14 @@
 
 use std::collections::HashMap;
 
+use anyhow::{
+    Context,
+    Result,
+};
+
 use crate::vm_specs::{
     Instruction,
+    Program,
     Register,
     REGISTER_COUNT,
 };
@@ -30,7 +36,9 @@ pub struct SimulationRow {
     /// for the last row in any `PreflightSimulation`
     is_halted: bool,
 
+    /// Registers
     registers: [u8; REGISTER_COUNT],
+
     /// This ideally should be something like `im::HashMap`, see:
     /// https://crates.io/crates/im for immutable collections.
     /// This is because, more often than not, each subsequent `SimulationRow`
@@ -44,8 +52,38 @@ pub struct SimulationRow {
     memory_snapshot: HashMap<u8, u8>,
 }
 
+impl SimulationRow {
+    pub fn generate_first_row(prog: &Program) -> Result<Self> {
+        let program_counter = prog.entry_point;
+        let instruction = prog
+            .code
+            .get(&program_counter)
+            .cloned()
+            .context("instruction not found")?;
+        Ok(Self {
+            instruction,
+            clock: 0,
+            program_counter,
+            is_halted: false,
+            registers: [0; REGISTER_COUNT],
+            memory_snapshot: prog
+                .memory_init
+                .clone(),
+        })
+    }
+}
+
 /// Unconstrainted Preflight Simulation of the program built
 /// by running the code.
 pub struct PreflightSimulation {
     trace_rows: Vec<SimulationRow>,
+}
+
+impl PreflightSimulation {
+    /// Entry point to simulate a program and generate a `PreflightSimulation`
+    /// to be used to generate tables
+    pub fn simulate(prog: &Program) -> Result<Self> {
+        let mut current_row = SimulationRow::generate_first_row(prog)?;
+        Ok(Self { trace_rows: vec![] })
+    }
 }

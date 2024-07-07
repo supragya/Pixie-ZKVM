@@ -4,7 +4,7 @@ A toy, simple an playful ZERO-KNOWLEDGE / STARK based ZKVM to showcase the intri
 ## VM description
 - [ ] Single byte-only addressible memory of range: `0x00` to `0xFF`. All addresses are Read-Write (no Read-only memory).
 - [ ] No Stack, No Heap, No Allocator.
-- [ ] CPU instruction set described below, 3 registers: `r1`, `r2`, `r3` each capable of storing one byte at a time.
+- [ ] CPU instruction set described below, 2 registers: `r0`, `r1` each capable of storing one byte at a time.
 - [ ] Harvard CPU architecture, no self-modifying code.
 
 ## Instruction Set

@@ -5,11 +5,11 @@ use std::collections::HashMap;
 #[derive(Clone, Default, Debug, PartialEq)]
 pub enum Register {
     #[default]
+    R0,
     R1,
-    R2,
 }
 
-pub const REGISTER_COUNT: usize = std::mem::variant_count::<Register>;
+pub const REGISTER_COUNT: usize = std::mem::variant_count::<Register>();
 
 /// All memory locations in this VM are addressed via u8.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

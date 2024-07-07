@@ -1,3 +1,14 @@
+//! We enable a few `nightly`-only features since by depending on
+//! `plonky2`, we anyways need to use `nightly` toolchain. Since,
+//! among other things `plonky2` enables `#![feature(specialization)]`.
+//! We tend to not overuse these features in this crate however :).
+
+// We enable `variant_count` since we want to access
+// `std::mem::variant_count::<T>` which for any enum `T`
+// produces the number of variants withing the enum.
+// Take a look at `vm_spec.rs` for `REGISTER_COUNT`.
+#![feature(variant_count)]
+
 mod preflight_simulator;
 mod vm_specs;
 
@@ -8,22 +19,37 @@ mod tests {
     use crate::vm_specs::{
         Instruction,
         MemoryLocation,
+        Program,
         Register,
     };
 
     #[test]
+    /// Tests whether two numbers in memory can be added together
+    /// in the ZKVM
     fn test_preflight_1() {
-        // Tests that if two numbers can be added in the VM
         let instructions = vec![
-            Instruction::Lb(Register::R1, MemoryLocation(0x40)),
-            Instruction::Lb(Register::R2, MemoryLocation(0x41)),
-            Instruction::Add(Register::R1, Register::R2),
-            Instruction::Sb(Register::R1, MemoryLocation(0x42)),
+            Instruction::Lb(Register::R0, MemoryLocation(0x40)),
+            Instruction::Lb(Register::R1, MemoryLocation(0x41)),
+            Instruction::Add(Register::R0, Register::R1),
+            Instruction::Sb(Register::R0, MemoryLocation(0x42)),
             Instruction::Halt,
         ];
 
+        let code = instructions
+            .into_iter()
+            .enumerate()
+            .map(|idx, inst| (idx, inst))
+            .collect::<HashMap<u8, Instruction>>();
+
         let memory_init: HashMap<u8, u8> =
             HashMap::from_iter(vec![(0x40, 0x20), (0x41, 0x45)].into_iter());
+
+        let program = Program {
+            entry_point: 0,
+            code,
+            memory_init,
+        };
+
         let expected = (0x42, 0x65);
     }
 }
