@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use anyhow::{
+    anyhow,
     Context,
     Result,
 };
@@ -71,6 +72,83 @@ impl SimulationRow {
                 .clone(),
         })
     }
+
+    pub fn execute_one_cycle(
+        &self,
+        prog: &Program,
+    ) -> Result<Self> {
+        // Remember, we have no jump instructions in our VM ISA
+        // Hence, this following is safe. Otherwise, more complicated
+        // logic needs to be implemented.
+        let program_counter = self.program_counter + 1;
+        let clock = self.clock + 1;
+
+        let instruction = prog
+            .code
+            .get(&program_counter)
+            .cloned()
+            .context("instruction not found")?;
+
+        let is_halted = instruction == Instruction::Halt;
+        let mut registers = self
+            .registers
+            .clone();
+
+        let mut memory_snapshot = self
+            .memory_snapshot
+            .clone();
+
+        match self.instruction {
+            Instruction::Add(a, b) => {
+                registers[usize::from(a)] += registers[usize::from(b)]
+            }
+            Instruction::Sub(a, b) => {
+                registers[usize::from(a)] += registers[usize::from(b)]
+            }
+            Instruction::Mul(a, b) => {
+                registers[usize::from(a)] += registers[usize::from(b)]
+            }
+            Instruction::Div(a, b) => {
+                registers[usize::from(a)] += registers[usize::from(b)]
+            }
+            Instruction::Bsl(reg, amount) => {
+                if registers[usize::from(amount.clone())] >= 8 {
+                    return Err(anyhow!("invalid shift amount"));
+                }
+                registers[usize::from(reg)] <<= registers[usize::from(amount)];
+            }
+            Instruction::Bsr(reg, amount) => {
+                if registers[usize::from(amount.clone())] >= 8 {
+                    return Err(anyhow!("invalid shift amount"));
+                }
+                registers[usize::from(reg)] >>= registers[usize::from(amount)];
+            }
+            Instruction::Lb(reg, memloc) => {
+                registers[usize::from(reg)] = self
+                    .memory_snapshot
+                    .get(&memloc.0)
+                    .copied()
+                    .unwrap_or_default(); // We treat uninitialized memory as 0
+            }
+            Instruction::Sb(reg, memloc) => {
+                memory_snapshot
+                    .entry(memloc.0)
+                    .and_modify(|elem| *elem = registers[usize::from(reg)])
+                    .or_insert(registers[usize::from(reg)]);
+            }
+            Instruction::Halt => { // is a no-op
+            }
+        };
+
+        Ok(Self {
+            instruction,
+            clock,
+            program_counter,
+            is_halted,
+            registers,
+            memory_snapshot,
+        })
+    }
 }
 
 /// Unconstrainted Preflight Simulation of the program built
@@ -83,7 +161,26 @@ impl PreflightSimulation {
     /// Entry point to simulate a program and generate a `PreflightSimulation`
     /// to be used to generate tables
     pub fn simulate(prog: &Program) -> Result<Self> {
-        let mut current_row = SimulationRow::generate_first_row(prog)?;
-        Ok(Self { trace_rows: vec![] })
+        const MAX_CPU_CYCLES_ALLOWED: usize = 1_000;
+
+        let mut trace_rows = Vec::with_capacity(MAX_CPU_CYCLES_ALLOWED / 4);
+        let first_row = SimulationRow::generate_first_row(prog)?;
+        trace_rows.push(first_row);
+
+        while (trace_rows.len() < MAX_CPU_CYCLES_ALLOWED
+            && !trace_rows[trace_rows.len() - 1].is_halted)
+        {
+            let current_row =
+                trace_rows[trace_rows.len() - 1].execute_one_cycle(prog)?;
+            trace_rows.push(current_row);
+        }
+
+        if !trace_rows[trace_rows.len() - 1].is_halted {
+            return Err(anyhow!(
+                "simulation halted since MAX_CPU_CYCLES_ALLOWED reached"
+            ));
+        }
+
+        Ok(Self { trace_rows })
     }
 }

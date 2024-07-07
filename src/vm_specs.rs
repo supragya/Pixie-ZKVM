@@ -2,11 +2,20 @@
 
 use std::collections::HashMap;
 
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub enum Register {
     #[default]
-    R0,
+    R0 = 0,
     R1,
+}
+
+impl From<Register> for usize {
+    fn from(value: Register) -> Self {
+        match value {
+            Register::R0 => 0,
+            Register::R1 => 1,
+        }
+    }
 }
 
 pub const REGISTER_COUNT: usize = std::mem::variant_count::<Register>();
