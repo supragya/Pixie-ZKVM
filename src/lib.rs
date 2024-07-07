@@ -16,6 +16,9 @@ mod preflight_simulator;
 #[allow(dead_code)]
 mod vm_specs;
 
+// STARK tables -------------
+mod stark_program_instructions;
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
