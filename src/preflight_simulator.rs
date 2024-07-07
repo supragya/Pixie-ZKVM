@@ -6,9 +6,17 @@
 
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{
+    anyhow,
+    Context,
+    Result,
+};
 
-use crate::vm_specs::{Instruction, Program, REGISTER_COUNT};
+use crate::vm_specs::{
+    Instruction,
+    Program,
+    REGISTER_COUNT,
+};
 
 /// Each `SimulationRow` describes the state of simulation at each step
 /// of execution
@@ -59,11 +67,16 @@ impl SimulationRow {
             program_counter,
             is_halted: false,
             registers: [0; REGISTER_COUNT],
-            memory_snapshot: prog.memory_init.clone(),
+            memory_snapshot: prog
+                .memory_init
+                .clone(),
         })
     }
 
-    pub fn execute_one_cycle(&self, prog: &Program) -> Result<Self> {
+    pub fn execute_one_cycle(
+        &self,
+        prog: &Program,
+    ) -> Result<Self> {
         // Remember, we have no jump instructions in our VM ISA
         // Hence, this following is safe. Otherwise, more complicated
         // logic needs to be implemented.
@@ -79,13 +92,23 @@ impl SimulationRow {
         let is_halted = instruction == Instruction::Halt;
         let mut registers = self.registers;
 
-        let mut memory_snapshot = self.memory_snapshot.clone();
+        let mut memory_snapshot = self
+            .memory_snapshot
+            .clone();
 
         match self.instruction {
-            Instruction::Add(a, b) => registers[usize::from(a)] += registers[usize::from(b)],
-            Instruction::Sub(a, b) => registers[usize::from(a)] += registers[usize::from(b)],
-            Instruction::Mul(a, b) => registers[usize::from(a)] += registers[usize::from(b)],
-            Instruction::Div(a, b) => registers[usize::from(a)] += registers[usize::from(b)],
+            Instruction::Add(a, b) => {
+                registers[usize::from(a)] += registers[usize::from(b)]
+            }
+            Instruction::Sub(a, b) => {
+                registers[usize::from(a)] -= registers[usize::from(b)]
+            }
+            Instruction::Mul(a, b) => {
+                registers[usize::from(a)] *= registers[usize::from(b)]
+            }
+            Instruction::Div(a, b) => {
+                registers[usize::from(a)] /= registers[usize::from(b)]
+            }
             Instruction::Bsl(reg, amount) => {
                 if registers[usize::from(amount)] >= 8 {
                     return Err(anyhow!("invalid shift amount"));
@@ -125,12 +148,18 @@ impl SimulationRow {
         })
     }
 
-    pub fn get_memory_at(&self, address: &u8) -> Option<u8> {
-        self.memory_snapshot.get(address).copied()
+    pub fn get_memory_at(
+        &self,
+        address: &u8,
+    ) -> Option<u8> {
+        self.memory_snapshot
+            .get(address)
+            .copied()
     }
 
     pub fn get_registers(&self) -> [u8; REGISTER_COUNT] {
         self.registers
+            .clone()
     }
 }
 
@@ -154,7 +183,8 @@ impl PreflightSimulation {
         while trace_rows.len() < MAX_CPU_CYCLES_ALLOWED
             && !trace_rows[trace_rows.len() - 1].is_halted
         {
-            let current_row = trace_rows[trace_rows.len() - 1].execute_one_cycle(prog)?;
+            let current_row =
+                trace_rows[trace_rows.len() - 1].execute_one_cycle(prog)?;
             trace_rows.push(current_row);
         }
 
