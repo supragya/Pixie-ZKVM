@@ -16,8 +16,8 @@ following instructions are chosen to be implemented:
 - [ ] **SUB**: `SUB r1 r2` Subtracts registers `r1` and `r2` such that `r1 = r1 - r2`.
 - [ ] **MUL**: `MUL r1 r2` Multiplies registers `r1` and `r2` such that `r1 = r1 * r2`.
 - [ ] **DIV**: `DIV r1 r2` Divides registers `r1` and `r2` such that `r1 = r1 / r2`.
-- [ ] **BSL**: `BSL r1 r2` BitShifts `r1` by `r2` to the left, panics if `r2 >= 8`. `r1 = r1 << r2`.
-- [ ] **BSR**: `BSR r1 r2` BitShift analog towards the right.
+- [ ] **SHL**: `BSL r1 r2` BitShifts `r1` by `r2` to the left. 
+- [ ] **SHR**: `SHR r1 r2` BitShift analog towards the right.
 - [ ] **LB**: `LB r1 0x10` Loads a single byte at `0x10` into register `r1`.
 - [ ] **SB**: `SB r1 0x10` Stores a single byte in register `r1` to memory location `0x10`.
 
