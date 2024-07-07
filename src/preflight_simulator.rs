@@ -130,7 +130,7 @@ impl SimulationRow {
     }
 
     pub fn get_registers(&self) -> [u8; REGISTER_COUNT] {
-        self.registers.clone()
+        self.registers
     }
 }
 

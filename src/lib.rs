@@ -17,6 +17,7 @@ mod preflight_simulator;
 mod vm_specs;
 
 // STARK tables -------------
+#[allow(dead_code)]
 mod stark_program_instructions;
 
 #[cfg(test)]
@@ -25,7 +26,12 @@ mod tests {
 
     use crate::{
         preflight_simulator::PreflightSimulation,
-        vm_specs::{Instruction, MemoryLocation, Program, Register},
+        vm_specs::{
+            Instruction,
+            MemoryLocation,
+            Program,
+            Register,
+        },
     };
 
     #[test]
@@ -46,7 +52,8 @@ mod tests {
             .map(|(idx, inst)| (idx as u8, inst))
             .collect::<HashMap<u8, Instruction>>();
 
-        let memory_init: HashMap<u8, u8> = HashMap::from_iter(vec![(0x40, 0x20), (0x41, 0x45)]);
+        let memory_init: HashMap<u8, u8> =
+            HashMap::from_iter(vec![(0x40, 0x20), (0x41, 0x45)]);
 
         let program = Program {
             entry_point: 0,
@@ -61,9 +68,12 @@ mod tests {
         let simulation = simulation.unwrap();
 
         assert_eq!(
-            simulation.trace_rows[simulation.trace_rows.len() - 1]
-                .get_memory_at(&expected.0)
-                .unwrap(),
+            simulation.trace_rows[simulation
+                .trace_rows
+                .len()
+                - 1]
+            .get_memory_at(&expected.0)
+            .unwrap(),
             expected.1
         );
     }

@@ -70,7 +70,7 @@ where
             .map(|(pc, inst)| {
                 [
                     // Program Counter (ID = 0)
-                    F::from_canonical_u8(pc.clone()),
+                    F::from_canonical_u8(*pc),
                     // Instruction Opcode (ID = 1)
                     F::from_canonical_u8(inst.get_opcode()),
                     // Filter, true if actual instructions (ID = 2)
@@ -125,9 +125,9 @@ where
 
     fn eval_ext_circuit(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        _builder: &mut CircuitBuilder<F, D>,
+        _vars: &Self::EvaluationFrameTarget,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         unimplemented!()
     }
@@ -139,7 +139,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
@@ -154,8 +153,6 @@ mod tests {
         proof::StarkProofWithPublicInputs,
         prover::prove,
     };
-
-    use crate::vm_specs::Instruction;
 
     use super::*;
 
