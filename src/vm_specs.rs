@@ -9,6 +9,8 @@ pub enum Register {
     R2,
 }
 
+pub const REGISTER_COUNT: usize = std::mem::variant_count::<Register>;
+
 /// All memory locations in this VM are addressed via u8.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MemoryLocation(pub u8);
