@@ -46,6 +46,7 @@ use crate::vm_specs::Program;
 const NUMBER_OF_COLS: usize = 3;
 const PUBLIC_INPUTS: usize = 0;
 
+#[derive(Clone, Copy)]
 pub struct ProgramInstructionsStark<F, const D: usize> {
     pub _f: PhantomData<F>,
 }
@@ -152,6 +153,7 @@ mod tests {
         config::StarkConfig,
         proof::StarkProofWithPublicInputs,
         prover::prove,
+        verifier::verify_stark_proof,
     };
 
     use super::*;
@@ -176,7 +178,15 @@ mod tests {
             ProgramInstructionsStark::<F, D>::generate_program_instructions_trace(
                 &program,
             );
-        let proof: Result<PR, anyhow::Error> =
-            prove(stark, &config, trace, &[], &mut TimingTree::default());
+        let proof: Result<PR, anyhow::Error> = prove(
+            stark.clone(),
+            &config,
+            trace,
+            &[],
+            &mut TimingTree::default(),
+        );
+        assert!(proof.is_ok());
+        let verification = verify_stark_proof(stark, proof.unwrap(), &config);
+        assert!(verification.is_ok());
     }
 }
