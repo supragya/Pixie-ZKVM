@@ -33,7 +33,7 @@ mod tests {
     #[test]
     /// Tests whether two numbers in memory can be added together
     /// in the ZKVM
-    fn test_preflight_1() {
+    fn test_preflight_add_memory() {
         let instructions = vec![
             Instruction::Lb(Register::R0, MemoryLocation(0x40)),
             Instruction::Lb(Register::R1, MemoryLocation(0x41)),
@@ -63,6 +63,14 @@ mod tests {
         assert!(simulation.is_ok());
         let simulation = simulation.unwrap();
 
-        println!("{:#?}", simulation);
+        assert_eq!(
+            simulation.trace_rows[simulation
+                .trace_rows
+                .len()
+                - 1]
+            .get_memory_at(&expected.0)
+            .unwrap(),
+            expected.1
+        );
     }
 }

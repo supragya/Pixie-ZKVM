@@ -90,8 +90,7 @@ impl SimulationRow {
             .context("instruction not found")?;
 
         let is_halted = instruction == Instruction::Halt;
-        let mut registers = self
-            .registers;
+        let mut registers = self.registers;
 
         let mut memory_snapshot = self
             .memory_snapshot
@@ -147,6 +146,20 @@ impl SimulationRow {
             registers,
             memory_snapshot,
         })
+    }
+
+    pub fn get_memory_at(
+        &self,
+        address: &u8,
+    ) -> Option<u8> {
+        self.memory_snapshot
+            .get(address)
+            .copied()
+    }
+
+    pub fn get_registers(&self) -> [u8; REGISTER_COUNT] {
+        self.registers
+            .clone()
     }
 }
 
