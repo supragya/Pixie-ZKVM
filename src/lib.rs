@@ -45,7 +45,7 @@ mod tests {
             .collect::<HashMap<u8, Instruction>>();
 
         let memory_init: HashMap<u8, u8> =
-            HashMap::from_iter(vec![(0x40, 0x20), (0x41, 0x45)].into_iter());
+            HashMap::from_iter(vec![(0x40, 0x20), (0x41, 0x45)]);
 
         let program = Program {
             entry_point: 0,

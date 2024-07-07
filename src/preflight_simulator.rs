@@ -15,7 +15,6 @@ use anyhow::{
 use crate::vm_specs::{
     Instruction,
     Program,
-    Register,
     REGISTER_COUNT,
 };
 
@@ -92,8 +91,7 @@ impl SimulationRow {
 
         let is_halted = instruction == Instruction::Halt;
         let mut registers = self
-            .registers
-            .clone();
+            .registers;
 
         let mut memory_snapshot = self
             .memory_snapshot
@@ -169,8 +167,8 @@ impl PreflightSimulation {
         let first_row = SimulationRow::generate_first_row(prog)?;
         trace_rows.push(first_row);
 
-        while (trace_rows.len() < MAX_CPU_CYCLES_ALLOWED
-            && !trace_rows[trace_rows.len() - 1].is_halted)
+        while trace_rows.len() < MAX_CPU_CYCLES_ALLOWED
+            && !trace_rows[trace_rows.len() - 1].is_halted
         {
             let current_row =
                 trace_rows[trace_rows.len() - 1].execute_one_cycle(prog)?;
