@@ -9,7 +9,11 @@
 // Take a look at `vm_spec.rs` for `REGISTER_COUNT`.
 #![feature(variant_count)]
 
+// We allow for dead_code because a usage of such in test harnesses
+// doesn't register as a usage for clippy
+#[allow(dead_code)]
 mod preflight_simulator;
+#[allow(dead_code)]
 mod vm_specs;
 
 #[cfg(test)]
