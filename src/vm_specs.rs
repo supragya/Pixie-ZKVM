@@ -38,6 +38,24 @@ pub enum Instruction {
     Halt,
 }
 
+impl Instruction {
+    /// Not the best of the implementations. But written it like this
+    /// for demonstration purposes
+    pub fn get_opcode(&self) -> u8 {
+        match self {
+            Instruction::Add(_, _) => 0,
+            Instruction::Sub(_, _) => 1,
+            Instruction::Mul(_, _) => 2,
+            Instruction::Div(_, _) => 3,
+            Instruction::Bsl(_, _) => 4,
+            Instruction::Bsr(_, _) => 5,
+            Instruction::Lb(_, _) => 6,
+            Instruction::Sb(_, _) => 7,
+            Instruction::Halt => 8,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Program {
     /// The entrypoint of the program

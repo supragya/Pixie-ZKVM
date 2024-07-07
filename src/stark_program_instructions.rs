@@ -12,23 +12,70 @@ use plonky2::{
             FieldExtension,
         },
         packed::PackedField,
+        polynomial::PolynomialValues,
     },
     hash::hash_types::RichField,
     iop::ext_target::ExtensionTarget,
+    plonk::circuit_builder::CircuitBuilder,
 };
 use starky::{
-    constraint_consumer::ConstraintConsumer,
-    evaluation_frame::StarkFrame,
+    constraint_consumer::{
+        ConstraintConsumer,
+        RecursiveConstraintConsumer,
+    },
+    evaluation_frame::{
+        StarkEvaluationFrame,
+        StarkFrame,
+    },
     stark::Stark,
+    util::trace_rows_to_poly_values,
 };
 
-pub struct ProgramInstructions<T> {
-    pub program_counter: T,
-    pub instruction_data: T,
-}
+use crate::vm_specs::Program;
 
-const NUMBER_OF_COLS: usize = 2;
+/// Represents one row in a STARK table, contains `is_filter` which
+/// should be set to `true` in case it represents an actual instruction
+//#[repr(C)]
+//#[derive(Default, Clone, Copy, PartialEq, Debug)]
+//pub struct ProgramInstructions<T> {
+//    pub program_counter: T, // ID = 0
+//    pub opcode: T,          // ID = 1
+//    pub filter: T,          // ID = 2
+//}
+
+const NUMBER_OF_COLS: usize = 3;
 const PUBLIC_INPUTS: usize = 0;
+
+pub fn generate_program_instructions_trace<F>(
+    prog: &Program
+) -> Vec<PolynomialValues<F>>
+where
+    F: RichField,
+{
+    let mut trace = prog
+        .code
+        .iter()
+        .map(|(pc, inst)| {
+            [
+                // Program Counter (ID = 0)
+                F::from_canonical_u8(pc.clone()),
+                // Instruction Opcode (ID = 1)
+                F::from_canonical_u8(inst.get_opcode()),
+                // Filter, true if actual instructions (ID = 2)
+                F::ONE,
+            ]
+        })
+        .collect::<Vec<[F; NUMBER_OF_COLS]>>();
+
+    // Need to pad the trace to a len of some power of 2
+    let pow2_len = trace
+        .len()
+        .next_power_of_two();
+    trace.resize(pow2_len, [F::ZERO, F::ZERO, F::ZERO]);
+
+    // Convert into polynomial values
+    trace_rows_to_poly_values(trace)
+}
 
 pub struct ProgramInstructionsStark<F, const D: usize> {
     pub _f: PhantomData<F>,
@@ -60,14 +107,20 @@ where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        let local_values = vars.get_local_values();
+
+        // Check if filter column is either 0 or 1
+        let filter_column = local_values[2];
+        yield_constr.constraint(filter_column * (P::ONES - filter_column));
     }
 
     fn eval_ext_circuit(
         &self,
-        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        builder: &mut CircuitBuilder<F, D>,
         vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut starky::constraint_consumer::RecursiveConstraintConsumer<F, D>,
+        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
+        unimplemented!()
     }
 
     fn constraint_degree(&self) -> usize {
