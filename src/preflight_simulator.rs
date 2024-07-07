@@ -21,6 +21,7 @@ use crate::vm_specs::{
 
 /// Each `SimulationRow` describes the state of simulation at each step
 /// of execution
+#[derive(Debug)]
 pub struct SimulationRow {
     /// Encodes the instruction executed during this "row". This would
     /// be useful when we go for SN/TARK constraining.
@@ -112,13 +113,13 @@ impl SimulationRow {
                 registers[usize::from(a)] += registers[usize::from(b)]
             }
             Instruction::Bsl(reg, amount) => {
-                if registers[usize::from(amount.clone())] >= 8 {
+                if registers[usize::from(amount)] >= 8 {
                     return Err(anyhow!("invalid shift amount"));
                 }
                 registers[usize::from(reg)] <<= registers[usize::from(amount)];
             }
             Instruction::Bsr(reg, amount) => {
-                if registers[usize::from(amount.clone())] >= 8 {
+                if registers[usize::from(amount)] >= 8 {
                     return Err(anyhow!("invalid shift amount"));
                 }
                 registers[usize::from(reg)] >>= registers[usize::from(amount)];
@@ -153,8 +154,9 @@ impl SimulationRow {
 
 /// Unconstrainted Preflight Simulation of the program built
 /// by running the code.
+#[derive(Debug)]
 pub struct PreflightSimulation {
-    trace_rows: Vec<SimulationRow>,
+    pub trace_rows: Vec<SimulationRow>,
 }
 
 impl PreflightSimulation {

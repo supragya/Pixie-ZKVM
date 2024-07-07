@@ -16,11 +16,14 @@ mod vm_specs;
 mod tests {
     use std::collections::HashMap;
 
-    use crate::vm_specs::{
-        Instruction,
-        MemoryLocation,
-        Program,
-        Register,
+    use crate::{
+        preflight_simulator::PreflightSimulation,
+        vm_specs::{
+            Instruction,
+            MemoryLocation,
+            Program,
+            Register,
+        },
     };
 
     #[test]
@@ -38,7 +41,7 @@ mod tests {
         let code = instructions
             .into_iter()
             .enumerate()
-            .map(|idx, inst| (idx, inst))
+            .map(|(idx, inst)| (idx as u8, inst))
             .collect::<HashMap<u8, Instruction>>();
 
         let memory_init: HashMap<u8, u8> =
@@ -51,5 +54,11 @@ mod tests {
         };
 
         let expected = (0x42, 0x65);
+
+        let simulation = PreflightSimulation::simulate(&program);
+        assert!(simulation.is_ok());
+        let simulation = simulation.unwrap();
+
+        println!("{:#?}", simulation);
     }
 }
