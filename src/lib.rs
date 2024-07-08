@@ -22,6 +22,11 @@ mod stark_cpu;
 #[allow(dead_code)]
 mod stark_program_instructions;
 
+#[allow(dead_code)]
+mod stark_memory;
+//mod stark_rangecheck_u8;
+//mod stark_execution_program_subset;
+
 // END TO END TEST ----------
 #[allow(dead_code)]
 mod e2e_tests;

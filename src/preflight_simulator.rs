@@ -57,7 +57,7 @@ impl SimulationRow {
             .context("instruction not found")?;
         Ok(Self {
             instruction,
-            clock: 0,
+            clock: 1, // `0` is reserved for memory init
             program_counter,
             is_halted: false,
             registers: [0; REGISTER_COUNT],
@@ -176,6 +176,9 @@ impl SimulationRow {
 /// by running the code.
 #[derive(Debug)]
 pub struct PreflightSimulation {
+    /// Memory before starting the program, a.k.a `clk = 0`
+    pub memory_init: HashMap<u8, u8>,
+    /// Step wise execution from `clk = 1`
     pub trace_rows: Vec<SimulationRow>,
 }
 
@@ -190,7 +193,12 @@ impl PreflightSimulation {
             .code
             .is_empty()
         {
-            return Ok(Self { trace_rows: vec![] });
+            return Ok(Self {
+                memory_init: prog
+                    .memory_init
+                    .clone(),
+                trace_rows: vec![],
+            });
         }
         let mut trace_rows =
             Vec::with_capacity(Self::MAX_CPU_CYCLES_ALLOWED / 4);
@@ -211,7 +219,12 @@ impl PreflightSimulation {
             ));
         }
 
-        Ok(Self { trace_rows })
+        Ok(Self {
+            memory_init: prog
+                .memory_init
+                .clone(),
+            trace_rows,
+        })
     }
 }
 

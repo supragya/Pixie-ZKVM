@@ -1,7 +1,7 @@
-//! This file is an encoding of all the execution seen at the "CPU"
+//! This file is an encoding of all the execution seen at the "Memory"
 //! It is dynamic and changes depending on the memory_init. It has
-//! to be linked to the static code "Program" by having a cross-table
-//! -lookup with `ProgramInstructionsStark`.
+//! to be linked to the execution stark "CPU" by having a cross-table
+//! -lookup with `MemoryStark`.
 
 use core::marker::PhantomData;
 use plonky2::{
@@ -39,28 +39,21 @@ use crate::{
 };
 
 // Table description:
-// +-----+----+--------+--------+--------------+---------+-------------+
-// | Clk | PC | Reg R0 | Reg R1 | Location     | Opcode* | Is_Executed |
-// +-----+----+--------+--------+--------------+---------+-------------+
-// | ..  | .. | ...    | ...    |  ....        |  ...    |             |
-// +-----+----+--------+--------+--------------+---------+-------------+
+// +---------------+-------+-------+-------+-------+---------+-------------+
+// | MemoryAddress | Clock | Value | Is_LB | Is_SB | Is_Init | Is_Executed |
+// +---------------+-------+-------+-------+-------+---------+-------------+
+// |  ...          |  ...  |  ...  |  ...  |  ...  |   ...   |  ...        |
+// +---------------+-------+-------+-------+-------+---------+-------------+
 //
-// `Opcode*` means `Opcode` that is one-hot encoded
-// `Location` can be either Memory or Instruction location.
-// 5 Columns for `Clk`, `PC`, `Reg R0`, `Reg R1`, `Location`
-// 11 Columns for opcodes. See `Instruction::get_opcode`.
-// 1 Column for `Is_Executed`
-const NUM_DYNAMIC_COLS: usize = 5;
-const NUM_OPCODE_ONEHOT: usize = 11;
-const NUMBER_OF_COLS: usize = NUM_DYNAMIC_COLS + NUM_OPCODE_ONEHOT + 1;
+const NUMBER_OF_COLS: usize = 7;
 const PUBLIC_INPUTS: usize = 0;
 
 #[derive(Clone, Copy)]
-pub struct CPUStark<F, const D: usize> {
+pub struct MemoryStark<F, const D: usize> {
     pub _f: PhantomData<F>,
 }
 
-impl<F, const D: usize> CPUStark<F, D>
+impl<F, const D: usize> MemoryStark<F, D>
 where
     F: RichField + Extendable<D>,
 {
@@ -72,48 +65,66 @@ where
     where
         F: RichField,
     {
-        let mut trace = sim
-            .trace_rows
+        let mut trace: Vec<[F; NUMBER_OF_COLS]> = sim
+            .memory_init
             .iter()
-            .map(|row| {
-                let dynamic_elems = [
+            .map(|(addr, value)| {
+                [
+                    // Memory Address
+                    F::from_canonical_u8(*addr),
+                    // Clock
+                    F::ZERO,
+                    // Value
+                    F::from_canonical_u8(*value),
+                    // Is_LB and Is_SB
+                    F::ZERO,
+                    F::ZERO,
+                    // Is_Init
+                    F::ONE,
+                    // Is_Executed
+                    F::ONE,
+                ]
+            })
+            .collect();
+
+        sim.trace_rows
+            .iter()
+            .for_each(|row| {
+                let (mut is_lb, mut is_sb, mut addr) = (false, false, 0);
+                match row.instruction {
+                    Instruction::Lb(_, memloc) => {
+                        is_lb = true;
+                        addr = memloc.0;
+                    }
+                    Instruction::Sb(_, memloc) => {
+                        is_sb = true;
+                        addr = memloc.0;
+                    }
+                    _ => {
+                        return ();
+                    }
+                }
+                let value = row
+                    .memory_snapshot
+                    .get(&addr)
+                    .expect("execution trace should have value for memop");
+                trace.push([
+                    // Memory Addrss
+                    F::from_canonical_u8(addr),
                     // Clock
                     F::from_canonical_u32(row.clock),
-                    // Program Counter
-                    F::from_canonical_u8(row.program_counter),
-                    // Registers
-                    F::from_canonical_u8(row.registers[0]),
-                    F::from_canonical_u8(row.registers[1]),
-                    // Memory Address (if any accessed)
-                    F::from_canonical_u8(match row.instruction {
-                        Instruction::Jz(_, l) => l.0,
-                        Instruction::Jnz(_, l) => l.0,
-                        Instruction::Lb(_, l) => l.0,
-                        Instruction::Sb(_, l) => l.0,
-                        _ => 0,
-                    }),
-                ];
-                let opcode_one_hot = row
-                    .instruction
-                    .one_hot_encode_and_apply::<F>();
-
-                let mut table_row = [F::ZERO; NUMBER_OF_COLS];
-                let mut idx = 0;
-                for elem in dynamic_elems {
-                    table_row[idx] = elem;
-                    idx += 1;
-                }
-                for elem in opcode_one_hot {
-                    table_row[idx] = elem;
-                    idx += 1;
-                }
-                // `Is_Executed`
-                table_row[NUMBER_OF_COLS - 1] = F::ONE;
-
-                table_row
-            })
-            .collect::<Vec<[F; NUMBER_OF_COLS]>>();
-
+                    // Value
+                    F::from_canonical_u8(*value),
+                    // Is_LB
+                    F::from_canonical_u8(u8::from(is_lb)),
+                    // Is_SB
+                    F::from_canonical_u8(u8::from(is_sb)),
+                    // Is_Init
+                    F::ZERO,
+                    // Is_Executed
+                    F::ONE,
+                ]);
+            });
         // Need to pad the trace to a len of some power of 2
         let pow2_len = trace
             .len()
@@ -125,7 +136,7 @@ where
     }
 }
 
-impl<F, const D: usize> Stark<F, D> for CPUStark<F, D>
+impl<F, const D: usize> Stark<F, D> for MemoryStark<F, D>
 where
     F: RichField + Extendable<D>,
 {
@@ -192,7 +203,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = CPUStark<F, D>;
+        type S = MemoryStark<F, D>;
         type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
 
         let stark = S::new();
@@ -206,7 +217,7 @@ mod tests {
         let simulation = PreflightSimulation::simulate(&program);
         assert!(simulation.is_ok());
         let simulation = simulation.unwrap();
-        let trace = CPUStark::<F, D>::generate_trace(&simulation);
+        let trace = MemoryStark::<F, D>::generate_trace(&simulation);
         let proof: Result<PR, anyhow::Error> = prove(
             stark.clone(),
             &config,
