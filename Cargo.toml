@@ -8,3 +8,4 @@ edition = "2021"
 plonky2 = { git = "https://github.com/0xPolygonZero/plonky2", rev = "76da138" }
 starky = { git = "https://github.com/0xPolygonZero/plonky2", rev = "76da138" }
 anyhow = "1.0.86"
+prettytable-rs = "0.10.0"

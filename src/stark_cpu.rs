@@ -22,20 +22,15 @@ use starky::{
         ConstraintConsumer,
         RecursiveConstraintConsumer,
     },
-    evaluation_frame::{
-        StarkEvaluationFrame,
-        StarkFrame,
-    },
+    evaluation_frame::StarkFrame,
     stark::Stark,
     util::trace_rows_to_poly_values,
 };
 
 use crate::{
     preflight_simulator::PreflightSimulation,
-    vm_specs::{
-        Instruction,
-        Program,
-    },
+    utilities::debug_table,
+    vm_specs::Instruction,
 };
 
 // Table description:
@@ -53,6 +48,11 @@ use crate::{
 const NUM_DYNAMIC_COLS: usize = 5;
 const NUM_OPCODE_ONEHOT: usize = 11;
 const NUMBER_OF_COLS: usize = NUM_DYNAMIC_COLS + NUM_OPCODE_ONEHOT + 1;
+const ROW_HEADINGS: [&str; NUMBER_OF_COLS] = [
+    "clk", "pc", "r0", "r1", "loc", "op_add", "op_sub", "op_mul", "op_div",
+    "op_shl", "op_shr", "op_jz", "op_jnz", "op_lb", "op_sb", "op_halt",
+    "is_exec",
+];
 const PUBLIC_INPUTS: usize = 0;
 
 #[derive(Clone, Copy)]
@@ -113,6 +113,8 @@ where
                 table_row
             })
             .collect::<Vec<[F; NUMBER_OF_COLS]>>();
+
+        debug_table("CPU", ROW_HEADINGS, &trace);
 
         // Need to pad the trace to a len of some power of 2
         let pow2_len = trace
@@ -184,6 +186,8 @@ mod tests {
         prover::prove,
         verifier::verify_stark_proof,
     };
+
+    use crate::vm_specs::Program;
 
     use super::*;
 

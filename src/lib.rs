@@ -14,6 +14,8 @@
 #[allow(dead_code)]
 mod preflight_simulator;
 #[allow(dead_code)]
+mod utilities;
+#[allow(dead_code)]
 mod vm_specs;
 
 // STARK tables -------------

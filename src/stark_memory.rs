@@ -22,20 +22,16 @@ use starky::{
         ConstraintConsumer,
         RecursiveConstraintConsumer,
     },
-    evaluation_frame::{
-        StarkEvaluationFrame,
-        StarkFrame,
-    },
+    evaluation_frame::StarkFrame,
     stark::Stark,
     util::trace_rows_to_poly_values,
 };
+use std::cmp::Ordering;
 
 use crate::{
     preflight_simulator::PreflightSimulation,
-    vm_specs::{
-        Instruction,
-        Program,
-    },
+    utilities::debug_table,
+    vm_specs::Instruction,
 };
 
 // Table description:
@@ -46,6 +42,8 @@ use crate::{
 // +---------------+-------+-------+-------+-------+---------+-------------+
 //
 const NUMBER_OF_COLS: usize = 7;
+const ROW_HEADINGS: [&str; NUMBER_OF_COLS] =
+    ["addr", "clk", "val", "is_lb", "is_sb", "is_init", "is_exec"];
 const PUBLIC_INPUTS: usize = 0;
 
 #[derive(Clone, Copy)]
@@ -125,6 +123,31 @@ where
                     F::ONE,
                 ]);
             });
+
+        // We need this since we want table to be sorted by `(MemoryLocation, Clock)`
+        trace.sort_by(|a, b| {
+            let addrs = (a[0].to_canonical_u64(), b[0].to_canonical_u64());
+            let clocks = (a[1].to_canonical_u64(), b[1].to_canonical_u64());
+            if addrs.0 < addrs.1 {
+                return Ordering::Less;
+            } else if addrs.0 > addrs.1 {
+                return Ordering::Greater;
+            } else {
+                if clocks.0 > clocks.1 {
+                    return Ordering::Greater;
+                }
+            }
+            Ordering::Less
+        });
+
+        debug_table("memory", ROW_HEADINGS, &trace);
+        //
+        //println!("---- MEMORY STARK ----");
+        //for row in &trace {
+        //    println!("{:?}", row);
+        //}
+        //println!("---- MEMORY STARK ----");
+
         // Need to pad the trace to a len of some power of 2
         let pow2_len = trace
             .len()
@@ -196,16 +219,18 @@ mod tests {
         verifier::verify_stark_proof,
     };
 
+    use crate::vm_specs::Program;
+
     use super::*;
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+    type S = MemoryStark<F, D>;
+    type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
 
     #[test]
     fn test_nil_program() {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type S = MemoryStark<F, D>;
-        type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
-
         let stark = S::new();
         let mut config = StarkConfig::standard_fast_config();
         // Need to do this since our table is small. Need atleast 1<<5
@@ -214,6 +239,35 @@ mod tests {
             .fri_config
             .cap_height = 1;
         let program = Program::default();
+        let simulation = PreflightSimulation::simulate(&program);
+        assert!(simulation.is_ok());
+        let simulation = simulation.unwrap();
+        let trace = MemoryStark::<F, D>::generate_trace(&simulation);
+        let proof: Result<PR, anyhow::Error> = prove(
+            stark.clone(),
+            &config,
+            trace,
+            &[],
+            &mut TimingTree::default(),
+        );
+        assert!(proof.is_ok());
+        let verification = verify_stark_proof(stark, proof.unwrap(), &config);
+        assert!(verification.is_ok());
+    }
+
+    #[test]
+    fn test_nil_code_program_init_memory() {
+        let stark = S::new();
+        let mut config = StarkConfig::standard_fast_config();
+        // Need to do this since our table is small. Need atleast 1<<5
+        // sized table to not affect this
+        config
+            .fri_config
+            .cap_height = 1;
+        let mut program = Program::default();
+        program
+            .memory_init
+            .insert(20, 211);
         let simulation = PreflightSimulation::simulate(&program);
         assert!(simulation.is_ok());
         let simulation = simulation.unwrap();
