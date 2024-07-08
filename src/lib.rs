@@ -29,6 +29,9 @@ mod stark_memory;
 //mod stark_rangecheck_u8;
 //mod stark_execution_program_subset;
 
+#[allow(dead_code)]
+mod stark_pixie_zkvm;
+
 // END TO END TEST ----------
 #[allow(dead_code)]
 mod e2e_tests;
