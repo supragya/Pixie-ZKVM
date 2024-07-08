@@ -18,21 +18,21 @@ use crate::vm_specs::{
 pub struct SimulationRow {
     /// Encodes the instruction executed during this "row". This would
     /// be useful when we go for SN/TARK constraining.
-    instruction: Instruction,
+    pub instruction: Instruction,
 
     /// Clock cycle during execution. Supports large cycle count till
     /// `u32::MAX`
-    clock: u32,
+    pub clock: u32,
 
     /// Address of the program instruction
-    program_counter: u8,
+    pub program_counter: u8,
 
     /// Whether at this row the execution halted. Should only be true
     /// for the last row in any `PreflightSimulation`
-    is_halted: bool,
+    pub is_halted: bool,
 
     /// Registers
-    registers: [u8; REGISTER_COUNT],
+    pub registers: [u8; REGISTER_COUNT],
 
     /// This ideally should be something like `im::HashMap`, see:
     /// https://crates.io/crates/im for immutable collections.
@@ -44,7 +44,7 @@ pub struct SimulationRow {
     ///
     /// However, that optimization is not used for simplicity's sake and
     /// since our VM is small, this is not a large performance hit.
-    memory_snapshot: HashMap<u8, u8>,
+    pub memory_snapshot: HashMap<u8, u8>,
 }
 
 impl SimulationRow {
@@ -186,6 +186,12 @@ impl PreflightSimulation {
     /// Entry point to simulate a program and generate a `PreflightSimulation`
     /// to be used to generate tables
     pub fn simulate(prog: &Program) -> Result<Self> {
+        if prog
+            .code
+            .is_empty()
+        {
+            return Ok(Self { trace_rows: vec![] });
+        }
         let mut trace_rows =
             Vec::with_capacity(Self::MAX_CPU_CYCLES_ALLOWED / 4);
         let first_row = SimulationRow::generate_first_row(prog)?;

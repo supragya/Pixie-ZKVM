@@ -17,8 +17,8 @@ mod preflight_simulator;
 mod vm_specs;
 
 // STARK tables -------------
-//#[allow(dead_code)]
-//mod stark_cpu;
+#[allow(dead_code)]
+mod stark_cpu;
 #[allow(dead_code)]
 mod stark_program_instructions;
 

@@ -64,6 +64,7 @@ mod tests {
         let mut config = StarkConfig::standard_fast_config();
         // This needs to be done for tables shorter than `1<<5`. We take
         // a performance hit though!
+        // Number of cap = 2^{cap_height}
         config
             .fri_config
             .cap_height = 1;

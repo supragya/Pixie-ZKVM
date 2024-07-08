@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use plonky2::hash::hash_types::RichField;
+
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub enum Register {
     #[default]
@@ -62,6 +64,20 @@ impl Instruction {
             Instruction::Sb(_, _) => 9,
             Instruction::Halt => 10,
         }
+    }
+
+    /// One-hot encoded description of the Opcode
+    pub fn one_hot_encode(&self) -> [u8; 11] {
+        let mut one_hot_enc = [0; 11];
+        one_hot_enc[self.get_opcode() as usize] = 1;
+        one_hot_enc
+    }
+
+    /// One-hot encodes the opcode and applies a function to it
+    pub fn one_hot_encode_and_apply<F: RichField>(&self) -> [F; 11] {
+        let mut encode_f: [F; 11] = [F::ZERO; 11];
+        encode_f[self.get_opcode() as usize] = F::ONE;
+        encode_f
     }
 }
 

@@ -3,6 +3,7 @@
 //! to be linked to the static code "Program" by having a cross-table
 //! -lookup with `ProgramInstructionsStark`.
 
+use array_macro::array;
 use core::marker::PhantomData;
 use plonky2::{
     field::{
@@ -30,19 +31,29 @@ use starky::{
     util::trace_rows_to_poly_values,
 };
 
-use crate::vm_specs::Program;
+use crate::{
+    preflight_simulator::PreflightSimulation,
+    vm_specs::{
+        Instruction,
+        Program,
+    },
+};
 
 // Table description:
-// +-----+----+--------+--------+--------------+---------+
-// | Clk | PC | Reg R0 | Reg R1 | MemoryAddr   | Opcode* |
-// +-----+----+--------+--------+--------------+---------+
-// | ..  | .. | ...    | ...    |  ....        |  ...    |
-// +-----+----+--------+--------+--------------+---------+
+// +-----+----+--------+--------+--------------+---------+-------------+
+// | Clk | PC | Reg R0 | Reg R1 | Location     | Opcode* | Is_Executed |
+// +-----+----+--------+--------+--------------+---------+-------------+
+// | ..  | .. | ...    | ...    |  ....        |  ...    |             |
+// +-----+----+--------+--------+--------------+---------+-------------+
 //
 // `Opcode*` means `Opcode` that is one-hot encoded
-// 5 Columns for `Clk`, `PC`, `Reg R0`, `Reg R1`, `MemoryAccess`
-// 10 Columns for opcodes. See `Instruction::get_opcode`.
-const NUMBER_OF_COLS: usize = 5 + 10;
+// `Location` can be either Memory or Instruction location.
+// 5 Columns for `Clk`, `PC`, `Reg R0`, `Reg R1`, `Location`
+// 11 Columns for opcodes. See `Instruction::get_opcode`.
+// 1 Column for `Is_Executed`
+const NUM_DYNAMIC_COLS: usize = 5;
+const NUM_OPCODE_ONEHOT: usize = 11;
+const NUMBER_OF_COLS: usize = NUM_DYNAMIC_COLS + NUM_OPCODE_ONEHOT + 1;
 const PUBLIC_INPUTS: usize = 0;
 
 #[derive(Clone, Copy)]
@@ -58,22 +69,49 @@ where
         Self { _f: PhantomData }
     }
 
-    pub fn generate_trace(prog: ) -> Vec<PolynomialValues<F>>
+    pub fn generate_trace(sim: &PreflightSimulation) -> Vec<PolynomialValues<F>>
     where
         F: RichField,
     {
-        let mut trace = prog
-            .code
+        let mut trace = sim
+            .trace_rows
             .iter()
-            .map(|(pc, inst)| {
-                [
-                    // Program Counter (ID = 0)
-                    F::from_canonical_u8(*pc),
-                    // Instruction Opcode (ID = 1)
-                    F::from_canonical_u8(inst.get_opcode()),
-                    // Filter, true if actual instructions (ID = 2)
-                    F::ONE,
-                ]
+            .map(|row| {
+                let dynamic_elems = [
+                    // Clock
+                    F::from_canonical_u32(row.clock),
+                    // Program Counter
+                    F::from_canonical_u8(row.program_counter),
+                    // Registers
+                    F::from_canonical_u8(row.registers[0]),
+                    F::from_canonical_u8(row.registers[1]),
+                    // Memory Address (if any accessed)
+                    F::from_canonical_u8(match row.instruction {
+                        Instruction::Jz(_, l) => l.0,
+                        Instruction::Jnz(_, l) => l.0,
+                        Instruction::Lb(_, l) => l.0,
+                        Instruction::Sb(_, l) => l.0,
+                        _ => 0,
+                    }),
+                ];
+                let opcode_one_hot = row
+                    .instruction
+                    .one_hot_encode_and_apply::<F>();
+
+                let mut table_row = [F::ZERO; NUMBER_OF_COLS];
+                let mut idx = 0;
+                for elem in dynamic_elems {
+                    table_row[idx] = elem;
+                    idx += 1;
+                }
+                for elem in opcode_one_hot {
+                    table_row[idx] = elem;
+                    idx += 1;
+                }
+                // `Is_Executed`
+                table_row[NUMBER_OF_COLS - 1] = F::ONE;
+
+                table_row
             })
             .collect::<Vec<[F; NUMBER_OF_COLS]>>();
 
@@ -81,7 +119,7 @@ where
         let pow2_len = trace
             .len()
             .next_power_of_two();
-        trace.resize(pow2_len, [F::ZERO, F::ZERO, F::ZERO]);
+        trace.resize(pow2_len, [F::ZERO; NUMBER_OF_COLS]);
 
         // Convert into polynomial values
         trace_rows_to_poly_values(trace)
@@ -166,8 +204,10 @@ mod tests {
             .fri_config
             .cap_height = 1;
         let program = Program::default();
-        let trace =
-            CPUStark::<F, D>::generate_program_instructions_trace(&program);
+        let simulation = PreflightSimulation::simulate(&program);
+        assert!(simulation.is_ok());
+        let simulation = simulation.unwrap();
+        let trace = CPUStark::<F, D>::generate_trace(&simulation);
         let proof: Result<PR, anyhow::Error> = prove(
             stark.clone(),
             &config,
