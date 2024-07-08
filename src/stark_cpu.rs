@@ -1,8 +1,7 @@
-//! This file is an encoding of all the "Program". It is "static"
-//! part of the proof generation process, in the sense that the "program"
-//! a.k.a. resting code is known prior to proof generation. This
-//! needs to be differentiated from actual running process trace, since
-//! that may be longer than "program" owing to actual execution of jumps.
+//! This file is an encoding of all the execution seen at the "CPU"
+//! It is dynamic and changes depending on the memory_init. It has
+//! to be linked to the static code "Program" by having a cross-table
+//! -lookup with `ProgramInstructionsStark`.
 
 use core::marker::PhantomData;
 use plonky2::{
@@ -34,21 +33,24 @@ use starky::{
 use crate::vm_specs::Program;
 
 // Table description:
-// +-----------------+--------------------+-------------+
-// | Program Counter | Instruction Opcode | Is_Executed |
-// +-----------------+--------------------+-------------+
-// |    ....         |     ....           |    ....     |
-// |    ....         |     ....           |    ....     |
-// +-----------------+--------------------+-------------+
-const NUMBER_OF_COLS: usize = 3;
+// +-----+----+--------+--------+--------------+---------+
+// | Clk | PC | Reg R0 | Reg R1 | MemoryAddr   | Opcode* |
+// +-----+----+--------+--------+--------------+---------+
+// | ..  | .. | ...    | ...    |  ....        |  ...    |
+// +-----+----+--------+--------+--------------+---------+
+//
+// `Opcode*` means `Opcode` that is one-hot encoded
+// 5 Columns for `Clk`, `PC`, `Reg R0`, `Reg R1`, `MemoryAccess`
+// 10 Columns for opcodes. See `Instruction::get_opcode`.
+const NUMBER_OF_COLS: usize = 5 + 10;
 const PUBLIC_INPUTS: usize = 0;
 
 #[derive(Clone, Copy)]
-pub struct ProgramInstructionsStark<F, const D: usize> {
+pub struct CPUStark<F, const D: usize> {
     pub _f: PhantomData<F>,
 }
 
-impl<F, const D: usize> ProgramInstructionsStark<F, D>
+impl<F, const D: usize> CPUStark<F, D>
 where
     F: RichField + Extendable<D>,
 {
@@ -56,7 +58,7 @@ where
         Self { _f: PhantomData }
     }
 
-    pub fn generate_trace(prog: &Program) -> Vec<PolynomialValues<F>>
+    pub fn generate_trace(prog: ) -> Vec<PolynomialValues<F>>
     where
         F: RichField,
     {
@@ -86,7 +88,7 @@ where
     }
 }
 
-impl<F, const D: usize> Stark<F, D> for ProgramInstructionsStark<F, D>
+impl<F, const D: usize> Stark<F, D> for CPUStark<F, D>
 where
     F: RichField + Extendable<D>,
 {
@@ -112,11 +114,6 @@ where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values = vars.get_local_values();
-
-        // Check if filter column is either 0 or 1
-        let filter_column = local_values[2];
-        yield_constr.constraint(filter_column * (P::ONES - filter_column));
     }
 
     fn eval_ext_circuit(
@@ -158,7 +155,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = ProgramInstructionsStark<F, D>;
+        type S = CPUStark<F, D>;
         type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
 
         let stark = S::new();
@@ -169,7 +166,8 @@ mod tests {
             .fri_config
             .cap_height = 1;
         let program = Program::default();
-        let trace = ProgramInstructionsStark::<F, D>::generate_trace(&program);
+        let trace =
+            CPUStark::<F, D>::generate_program_instructions_trace(&program);
         let proof: Result<PR, anyhow::Error> = prove(
             stark.clone(),
             &config,
