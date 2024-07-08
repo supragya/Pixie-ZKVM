@@ -18,6 +18,7 @@ mod tests {
     };
 
     use crate::{
+        preflight_simulator::PreflightSimulation,
         stark_program_instructions::ProgramInstructionsStark,
         vm_specs::{
             Instruction,
@@ -52,28 +53,32 @@ mod tests {
             memory_init,
         };
 
+        // Stark specific setup
+
+        // D = 2 for quadratic extension
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
+
+        let mut config = StarkConfig::standard_fast_config();
+        // This needs to be done for tables shorter than `1<<5`. We take
+        // a performance hit though!
+        config
+            .fri_config
+            .cap_height = 1;
+
         // Generate the static part of the proof
         let program_proof = {
-            const D: usize = 2;
-            type C = PoseidonGoldilocksConfig;
-            type F = <C as GenericConfig<D>>::F;
             type S = ProgramInstructionsStark<F, D>;
-            type PR = StarkProofWithPublicInputs<GoldilocksField, C, 2>;
 
             let stark = S::new();
-            let mut config = StarkConfig::standard_fast_config();
-            // Need to do this since our table is small. Need atleast 1<<5
-            // sized table to not affect this
-            config
-                .fri_config
-                .cap_height = 1;
-            let program = Program::default();
-            let trace =
+            let trace_poly_values =
                 ProgramInstructionsStark::<F, D>::generate_trace(&program);
             let proof: Result<PR, anyhow::Error> = prove(
                 stark.clone(),
                 &config,
-                trace,
+                trace_poly_values,
                 &[],
                 &mut TimingTree::default(),
             );
@@ -84,5 +89,8 @@ mod tests {
             assert!(verification.is_ok());
             proof
         };
+
+        // Simuate the program PreFlight
+        let simulation = PreflightSimulation::simulate(&program);
     }
 }
