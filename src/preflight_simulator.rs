@@ -1,9 +1,3 @@
-//! This simulator parses the program and executes it, formulating
-//! an `ExecutionTrace` containing all the information of the preflight
-//! simulation.
-//!
-//! This file does not involve itself with any S(N/T)ARK systems
-
 use std::collections::HashMap;
 
 use anyhow::{
@@ -77,24 +71,21 @@ impl SimulationRow {
         &self,
         prog: &Program,
     ) -> Result<Self> {
-        // Remember, we have no jump instructions in our VM ISA
-        // Hence, this following is safe. Otherwise, more complicated
-        // logic needs to be implemented.
-        let program_counter = self.program_counter + 1;
+        // This is mutable precisely because jump instructions can change it
+        // in weird ways. This is good default for many other operations though
+        let mut program_counter = self.program_counter + 1;
         let clock = self.clock + 1;
 
-        let instruction = prog
-            .code
-            .get(&program_counter)
-            .cloned()
-            .context("instruction not found")?;
-
-        let is_halted = instruction == Instruction::Halt;
         let mut registers = self.registers;
 
         let mut memory_snapshot = self
             .memory_snapshot
             .clone();
+
+        println!(
+            "[Exec] clk: {}, pc: {}, inst: {:?}",
+            self.clock, self.program_counter, self.instruction
+        );
 
         match self.instruction {
             Instruction::Add(a, b) => {
@@ -121,6 +112,16 @@ impl SimulationRow {
                 registers[usize::from(reg)] = registers[usize::from(reg)]
                     .wrapping_shr(registers[usize::from(amount)].into());
             }
+            Instruction::Jz(reg, instloc) => {
+                if registers[usize::from(reg)] == 0 {
+                    program_counter = instloc.0
+                }
+            }
+            Instruction::Jnz(reg, instloc) => {
+                if registers[usize::from(reg)] != 0 {
+                    program_counter = instloc.0
+                }
+            }
             Instruction::Lb(reg, memloc) => {
                 registers[usize::from(reg)] = self
                     .memory_snapshot
@@ -137,6 +138,14 @@ impl SimulationRow {
             Instruction::Halt => { // is a no-op
             }
         };
+
+        let instruction = prog
+            .code
+            .get(&program_counter)
+            .cloned()
+            .context("instruction not found")?;
+
+        let is_halted = instruction == Instruction::Halt;
 
         Ok(Self {
             instruction,
@@ -171,16 +180,18 @@ pub struct PreflightSimulation {
 }
 
 impl PreflightSimulation {
+    /// Maximum number of CPU cycles allowed
+    const MAX_CPU_CYCLES_ALLOWED: usize = 1_000;
+
     /// Entry point to simulate a program and generate a `PreflightSimulation`
     /// to be used to generate tables
     pub fn simulate(prog: &Program) -> Result<Self> {
-        const MAX_CPU_CYCLES_ALLOWED: usize = 1_000;
-
-        let mut trace_rows = Vec::with_capacity(MAX_CPU_CYCLES_ALLOWED / 4);
+        let mut trace_rows =
+            Vec::with_capacity(Self::MAX_CPU_CYCLES_ALLOWED / 4);
         let first_row = SimulationRow::generate_first_row(prog)?;
         trace_rows.push(first_row);
 
-        while trace_rows.len() < MAX_CPU_CYCLES_ALLOWED
+        while trace_rows.len() <= Self::MAX_CPU_CYCLES_ALLOWED
             && !trace_rows[trace_rows.len() - 1].is_halted
         {
             let current_row =
@@ -205,6 +216,7 @@ mod tests {
 
     use crate::vm_specs::{
         Instruction,
+        InstructionLocation,
         MemoryLocation,
         Program,
         Register,
@@ -252,5 +264,59 @@ mod tests {
             .unwrap(),
             expected.1
         );
+    }
+
+    #[test]
+    /// Tests whether execution stops on reaching `MAX_CPU_CYCLES_ALLOWED`
+    fn test_max_cpu_cycles() {
+        let instructions = vec![
+            Instruction::Jz(Register::R0, InstructionLocation(0x00)),
+            Instruction::Halt,
+        ];
+
+        let code = instructions
+            .into_iter()
+            .enumerate()
+            .map(|(idx, inst)| (idx as u8, inst))
+            .collect::<HashMap<u8, Instruction>>();
+
+        let program = Program {
+            entry_point: 0,
+            code,
+            ..Default::default()
+        };
+
+        let simulation = PreflightSimulation::simulate(&program);
+        assert!(simulation.is_err());
+    }
+
+    #[test]
+    /// Tests whether execution halts
+    fn test_haltable() {
+        let instructions = vec![
+            Instruction::Lb(Register::R0, MemoryLocation(0x40)),
+            Instruction::Lb(Register::R1, MemoryLocation(0x41)),
+            Instruction::Sub(Register::R0, Register::R1),
+            Instruction::Jnz(Register::R0, InstructionLocation(0x02)),
+            Instruction::Halt,
+        ];
+
+        let code = instructions
+            .into_iter()
+            .enumerate()
+            .map(|(idx, inst)| (idx as u8, inst))
+            .collect::<HashMap<u8, Instruction>>();
+
+        let memory_init: HashMap<u8, u8> =
+            HashMap::from_iter(vec![(0x40, 0x05), (0x41, 0x01)]);
+
+        let program = Program {
+            entry_point: 0,
+            code,
+            memory_init,
+        };
+
+        let simulation = PreflightSimulation::simulate(&program);
+        assert!(simulation.is_ok());
     }
 }

@@ -24,6 +24,10 @@ pub const REGISTER_COUNT: usize = std::mem::variant_count::<Register>();
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MemoryLocation(pub u8);
 
+/// All instruction locations in this VM are addresses via u8.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct InstructionLocation(pub u8);
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum Instruction {
     Add(Register, Register),
@@ -32,6 +36,8 @@ pub enum Instruction {
     Div(Register, Register),
     Shl(Register, Register),
     Shr(Register, Register),
+    Jz(Register, InstructionLocation),
+    Jnz(Register, InstructionLocation),
     Lb(Register, MemoryLocation),
     Sb(Register, MemoryLocation),
     #[default]
@@ -41,6 +47,7 @@ pub enum Instruction {
 impl Instruction {
     /// Not the best of the implementations. But written it like this
     /// for demonstration purposes
+    /// Prime candidate for Proc Macros :)
     pub fn get_opcode(&self) -> u8 {
         match self {
             Instruction::Add(_, _) => 0,
@@ -49,9 +56,11 @@ impl Instruction {
             Instruction::Div(_, _) => 3,
             Instruction::Shl(_, _) => 4,
             Instruction::Shr(_, _) => 5,
-            Instruction::Lb(_, _) => 6,
-            Instruction::Sb(_, _) => 7,
-            Instruction::Halt => 8,
+            Instruction::Jz(_, _) => 6,
+            Instruction::Jnz(_, _) => 7,
+            Instruction::Lb(_, _) => 8,
+            Instruction::Sb(_, _) => 9,
+            Instruction::Halt => 10,
         }
     }
 }

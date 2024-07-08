@@ -18,6 +18,8 @@ following instructions are chosen to be implemented:
 - [ ] **DIV**: `DIV r1 r2` Divides registers `r1` and `r2` such that `r1 = r1 / r2`.
 - [ ] **SHL**: `BSL r1 r2` BitShifts `r1` by `r2` to the left. 
 - [ ] **SHR**: `SHR r1 r2` BitShift analog towards the right.
+- [ ] **JZ**: `JZ r1 0x10` Jump to `0x10` if value in `r1` is zero.
+- [ ] **JNZ**: `JNZ r1 0x10` Jump to `0x10` if value in `r1` is not zero.
 - [ ] **LB**: `LB r1 0x10` Loads a single byte at `0x10` into register `r1`.
 - [ ] **SB**: `SB r1 0x10` Stores a single byte in register `r1` to memory location `0x10`.
 
