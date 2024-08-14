@@ -2,7 +2,6 @@ use anyhow::Result;
 use plonky2::{
     field::{
         extension::Extendable,
-        goldilocks_field::GoldilocksField,
         polynomial::PolynomialValues,
     },
     fri::oracle::PolynomialBatch,
@@ -14,15 +13,10 @@ use plonky2::{
     plonk::config::{
         AlgebraicHasher,
         GenericConfig,
-        Hasher,
-        PoseidonGoldilocksConfig,
     },
     util::timing::TimingTree,
 };
-use starky::{
-    config::StarkConfig,
-    proof::StarkProofWithPublicInputs,
-};
+use starky::config::StarkConfig;
 
 use crate::{
     preflight_simulator::PreflightSimulation,
@@ -89,12 +83,14 @@ where
     // Do a simulation
     let simulation = PreflightSimulation::simulate(prog)?;
 
-    // Generate traces and commit to them
+    // Generate traces for each of the STARK tables
     let pi_trace = ProgramInstructionsStark::<F, D>::generate_trace(prog);
-    let pi_comm_cap = trace_to_merkle_caps::<F, C, D>(&config, &pi_trace);
     let cpu_trace = CPUStark::<F, D>::generate_trace(&simulation);
-    let cpu_comm_cap = trace_to_merkle_caps::<F, C, D>(&config, &cpu_trace);
     let mem_trace = MemoryStark::<F, D>::generate_trace(&simulation);
+
+    // Commit to each of the tables
+    let pi_comm_cap = trace_to_merkle_caps::<F, C, D>(&config, &pi_trace);
+    let cpu_comm_cap = trace_to_merkle_caps::<F, C, D>(&config, &cpu_trace);
     let mem_comm_cap = trace_to_merkle_caps::<F, C, D>(&config, &mem_trace);
 
     // Create a new IOP challenger and let it observe all the commitments
